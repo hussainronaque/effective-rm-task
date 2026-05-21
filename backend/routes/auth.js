@@ -33,7 +33,11 @@ router.post('/signup', async (req, res) => {
       [email.toLowerCase(), passwordHash, verificationToken]
     );
 
-    await sendVerificationEmail(email, verificationToken);
+    try {
+      await sendVerificationEmail(email, verificationToken);
+    } catch (emailErr) {
+      console.error('[Auth] Email send failed:', emailErr.message);
+    }
 
     res.status(201).json({ message: 'Account created. Check your email to verify.' });
   } catch (err) {
