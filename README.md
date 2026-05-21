@@ -1,6 +1,8 @@
 # Task Manager – Effective-RM Technical Assignment
 
-A simple full-stack Task Management app built with Node.js (Express) + PostgreSQL on the backend and React (Vite + Tailwind CSS) on the frontend.
+A full-stack Task Management app built with Node.js (Express) + PostgreSQL on the backend and React (Vite + Tailwind CSS) on the frontend.
+
+**Live Demo:** https://effective-rm-task-frontend.vercel.app
 
 ---
 
@@ -14,139 +16,116 @@ effective-rm-task/
 
 ---
 
-## Backend Setup
+## Features
 
-### Requirements
-- Node.js v18+
-- PostgreSQL (running locally or via connection string)
-
-### Database Setup
-
-```bash
-psql postgres -c "CREATE DATABASE taskmanager;"
-```
-
-### Environment Variables
-
-Create `backend/.env`:
-```
-DATABASE_URL=postgresql://localhost:5432/taskmanager
-PORT=3001
-```
-
-### Install & Run
-
-```bash
-cd backend
-npm install
-npm start          # runs on http://localhost:3001
-# or
-npm run dev        # with auto-reload via nodemon
-```
-
-The `tasks` table is created automatically on first run.
+- **Authentication** — JWT-based login/signup with email verification (Resend)
+- **Task CRUD** — create, read, update, delete tasks
+- **Status toggle** — mark tasks pending / completed
+- **Inline edit** — update title, description, priority in place
+- **Search** — real-time filter by title or description
+- **Filter tabs** — All / Pending / Completed
+- **Per-user data** — each user only sees their own tasks
+- **Deployment** — backend + frontend on Vercel, PostgreSQL on Neon
 
 ---
 
-## Frontend Setup
+## Local Setup
 
 ### Requirements
 - Node.js v18+
-- Backend must be running on port 3001
+- PostgreSQL running locally
 
-### Install & Run
+### Backend
+
+```bash
+psql postgres -c "CREATE DATABASE taskmanager;"
+
+cd backend
+cp .env.example .env   # fill in your values
+npm install
+npm run dev            # http://localhost:3001
+```
+
+### Frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev        # runs on http://localhost:5173
+npm run dev            # http://localhost:5173
 ```
 
-Vite proxies `/tasks` requests to `http://localhost:3001`, so no CORS config needed during development.
+Vite proxies `/tasks` and `/auth` to `http://localhost:3001` in dev — no CORS config needed.
+
+### Backend Environment Variables (`backend/.env`)
+
+```
+DATABASE_URL=postgresql://localhost:5432/taskmanager
+PORT=3001
+JWT_SECRET=your-long-random-secret
+FRONTEND_URL=http://localhost:5173
+RESEND_API_KEY=your-resend-api-key
+APP_URL=http://localhost:3001
+```
 
 ---
 
 ## API Endpoints
 
-Base URL: `http://localhost:3001`
+All `/tasks` routes require `Authorization: Bearer <token>` header.
 
-### GET /tasks
-Fetch all tasks, ordered by newest first.
+### Auth
 
-**Response 200:**
-```json
-[
-  {
-    "id": 1,
-    "title": "Fix login bug",
-    "description": "Token expiry not handled",
-    "priority": "high",
-    "status": "pending",
-    "created_at": "2026-05-20T16:00:00.000Z"
-  }
-]
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/signup` | Create account, sends verification email |
+| POST | `/auth/login` | Login, returns JWT |
+| GET  | `/auth/verify?token=` | Verify email, redirects to frontend |
 
----
+### Tasks
 
-### POST /tasks
-Create a new task.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET    | `/tasks` | Fetch all tasks for authenticated user |
+| POST   | `/tasks` | Create a task |
+| PUT    | `/tasks/:id` | Partial update (title, description, priority, status) |
+| DELETE | `/tasks/:id` | Delete a task |
 
-**Body:**
+### POST /tasks body
 ```json
 {
   "title": "Fix login bug",        // required
   "description": "Some details",   // optional
-  "priority": "high"               // optional: "low" | "medium" | "high" (default: "medium")
+  "priority": "high"               // "low" | "medium" | "high" (default: "medium")
 }
-```
-
-**Response 201:** Created task object.
-
----
-
-### PUT /tasks/:id
-Update a task. Send only the fields you want to change.
-
-**Body (any combination):**
-```json
-{
-  "status": "completed",
-  "title": "Updated title",
-  "priority": "low"
-}
-```
-
-**Response 200:** Updated task object.
-
----
-
-### DELETE /tasks/:id
-Delete a task by ID.
-
-**Response 200:**
-```json
-{ "message": "Task deleted" }
 ```
 
 ---
 
 ## Task Schema
 
-| Field       | Type    | Notes                             |
-|-------------|---------|-----------------------------------|
-| id          | INTEGER | Auto-increment primary key        |
-| title       | TEXT    | Required                          |
-| description | TEXT    | Optional                          |
-| priority    | TEXT    | `low` / `medium` / `high`        |
-| status      | TEXT    | `pending` / `completed`          |
-| created_at  | TIMESTAMPTZ | UTC datetime, set automatically |
+| Field       | Type        | Notes                           |
+|-------------|-------------|---------------------------------|
+| id          | INTEGER     | Auto-increment primary key      |
+| user_id     | INTEGER     | Foreign key → users             |
+| title       | TEXT        | Required                        |
+| description | TEXT        | Optional                        |
+| priority    | TEXT        | `low` / `medium` / `high`      |
+| status      | TEXT        | `pending` / `completed`        |
+| created_at  | TIMESTAMPTZ | UTC, set automatically         |
+
+---
+
+## Deployment
+
+- **Backend:** Vercel (Express via `@vercel/node`) — https://effective-rm-task-backend.vercel.app
+- **Frontend:** Vercel (Vite SPA) — https://effective-rm-task-frontend.vercel.app
+- **Database:** Neon (serverless PostgreSQL)
 
 ---
 
 ## Assumptions & Notes
 
-- PostgreSQL is used as the relational database. Connection configured via `DATABASE_URL` in `.env`.
-- Vite dev proxy handles CORS during development. In production, CORS is enabled on the Express server.
-- `PUT /tasks/:id` is a partial update — unset fields retain their existing values.
-- Filter tabs (All / Pending / Completed) implemented as a bonus feature.
+- `PUT /tasks/:id` is a partial update — omitted fields retain existing values.
+- Tasks are scoped per user — users cannot access each other's tasks.
+- JWT tokens expire after 7 days.
+- **Email verification limitation:** Resend's `onboarding@resend.dev` sender (sandbox) can only deliver to the Resend account owner's email address. To send verification emails to any recipient, a verified custom domain is required in the Resend dashboard. The email infrastructure is fully implemented — this is purely a sandbox restriction of the free tier.
