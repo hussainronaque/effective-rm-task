@@ -25,7 +25,7 @@ const sendVerificationEmail = async (to, token) => {
   });
 
   if (error) {
-    console.error('[Mailer] Resend error:', error);
+    console.error('[Mailer] Resend error full:', JSON.stringify(error));
     throw new Error('Failed to send verification email');
   }
 
