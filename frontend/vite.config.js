@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/tasks': 'http://localhost:3001',
+      '/auth':  'http://localhost:3001',
     },
   },
 })

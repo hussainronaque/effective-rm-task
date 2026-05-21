@@ -1,25 +1,28 @@
 import { useEffect, useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { fetchTasks, createTask, updateTask, deleteTask } from './api/tasks';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
+import { useAuth } from './context/AuthContext';
 
 export default function App() {
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks]   = useState([]);
   const [filter, setFilter] = useState('all');
-  const [error, setError] = useState('');
+  const [error, setError]   = useState('');
+  const { token, email, logoutUser } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    loadTasks();
-  }, []);
+    if (!token) return;
+    fetchTasks()
+      .then((data) => {
+        if (data.error) { setError(data.error); return; }
+        setTasks(data);
+      })
+      .catch(() => setError('Failed to load tasks. Is the backend running?'));
+  }, [token]);
 
-  const loadTasks = async () => {
-    try {
-      const data = await fetchTasks();
-      setTasks(data);
-    } catch {
-      setError('Failed to load tasks. Is the backend running?');
-    }
-  };
+  if (!token) return <Navigate to="/login" replace />;
 
   const handleAdd = async (taskData) => {
     const newTask = await createTask(taskData);
@@ -44,6 +47,11 @@ export default function App() {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const handleLogout = () => {
+    logoutUser();
+    navigate('/login');
+  };
+
   const pending   = tasks.filter((t) => t.status === 'pending').length;
   const completed = tasks.filter((t) => t.status === 'completed').length;
 
@@ -52,11 +60,22 @@ export default function App() {
       <div className="max-w-xl mx-auto px-4 py-10 space-y-6">
 
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Task Manager</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            {pending} pending · {completed} completed
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Task Manager</h1>
+            <p className="text-sm text-gray-400 mt-1">
+              {pending} pending · {completed} completed
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-400 truncate max-w-[160px]">{email}</p>
+            <button
+              onClick={handleLogout}
+              className="text-xs text-indigo-600 hover:underline mt-0.5"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
 
         {/* Error banner */}
@@ -67,10 +86,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Add task form */}
         <TaskForm onAdd={handleAdd} />
 
-        {/* Task list */}
         <TaskList
           tasks={tasks}
           filter={filter}
